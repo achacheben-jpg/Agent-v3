@@ -3,6 +3,7 @@
 import { store, newId } from "./store.js";
 import { generators, PREJUDICE_KEYS, todayFR } from "./documents.js";
 import { findSlots, formatSlots } from "./slots.js";
+import { rapportDocx } from "./reports.js";
 import * as google from "./google.js";
 
 const S = (desc, extra = {}) => ({ type: "string", description: desc, ...extra });
@@ -64,6 +65,16 @@ export const proToolDefinitions = [
     formule: S("Formule de politesse finale ; chaîne vide = formule standard"),
   }, "Génère un courrier libre PDF à l'en-tête du Dr Achache, signé.") },
 
+  { name: "generate_rapport", ...strict({
+    style: { type: "string", enum: ["evaluation", "quantum", "conseil"], description: "evaluation = évaluation Dintilhac ou discussion médico-légale (Times 12 justifié, aucun gras) ; quantum = liquidation chiffrée (Arial 11, titres en gras, tableau de synthèse) ; conseil = rapport de conseil avec en-tête complet à gauche" },
+    titre: S("Titre du rapport, ex. « Évaluation médico-légale des préjudices corporels »"),
+    sous_titre: S("Ex. « Dossier de Madame Marie DUPONT », chaîne vide sinon"),
+    entete_lignes: { type: "array", items: { type: "string" }, description: "Lignes d'identité sous le titre (date de naissance, date de l'accident, consolidation…), tableau vide sinon" },
+    sections: { type: "array", description: "Sections dans l'ordre", items: { type: "object", additionalProperties: false, properties: { titre: S("Titre de section"), paragraphes: { type: "array", items: { type: "string" }, description: "Paragraphes de texte continu" } }, required: ["titre", "paragraphes"] } },
+    tableau: { type: "array", description: "Tableau de synthèse (liquidation uniquement), tableau vide sinon", items: { type: "object", additionalProperties: false, properties: { poste: S("Poste"), victime: S("Montant victime"), tiers: S("Montant tiers payeurs, vide sinon"), total: S("Total") }, required: ["poste", "victime", "tiers", "total"] } },
+    nom_fichier: S("Nom du fichier sans extension, ex. « Evaluation_DUPONT_Marie », chaîne vide = d'après le titre"),
+  }, "Génère un rapport Word (.docx) : évaluation Dintilhac, discussion médico-légale, liquidation chiffrée, rapport de conseil. Rédige d'abord le contenu complet, puis appelle l'outil une seule fois.") },
+
   { name: "find_slots", ...strict({
     duration: { type: "integer", enum: [20, 30, 45], description: "20 = consultation simple, 30 = moyenne, 45 = longue" },
     from: S("Date de début de recherche AAAA-MM-JJ, chaîne vide = maintenant"),
@@ -111,7 +122,7 @@ export const googleToolDefinitions = [
 
 export const proToolLabels = {
   generate_ordonnance: "Rédaction de l'ordonnance", generate_facture: "Rédaction de la note d'honoraires",
-  generate_conclusions: "Rédaction des conclusions", generate_certificat: "Rédaction du certificat", generate_courrier: "Rédaction du courrier",
+  generate_conclusions: "Rédaction des conclusions", generate_certificat: "Rédaction du certificat", generate_courrier: "Rédaction du courrier", generate_rapport: "Rédaction du rapport Word",
   find_slots: "Recherche de créneaux", list_experts: "Consultation du répertoire des experts", save_expert: "Mise à jour du répertoire",
   gcal_list_events: "Lecture de Google Agenda", gcal_create_event: "Ajout dans Google Agenda", gcal_update_event: "Modification dans Google Agenda", gcal_delete_event: "Suppression dans Google Agenda",
   gmail_search: "Recherche dans Gmail", gmail_read_thread: "Lecture d'un mail", gmail_create_draft: "Préparation d'un brouillon", gmail_mark_read: "Marquage comme lu",
@@ -145,6 +156,10 @@ export async function executeProTool(name, input, ctx = {}) {
     }
     case "generate_courrier": {
       const f = await generators.courrier({ destinataire: input.destinataire || "", objet: input.objet || "", date: input.date || "", corps: input.corps, formule: input.formule });
+      ctx.onFile?.(f); return fileMessage(f);
+    }
+    case "generate_rapport": {
+      const f = await rapportDocx(input);
       ctx.onFile?.(f); return fileMessage(f);
     }
     case "find_slots": {

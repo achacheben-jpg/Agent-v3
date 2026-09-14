@@ -11,6 +11,7 @@ import { runTurn, userContent } from "./src/agent.js";
 import * as google from "./src/google.js";
 import { filesDir, signaturePath } from "./src/documents.js";
 import { seedIfEmpty } from "./src/seed.js";
+import * as notify from "./src/notify.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -138,6 +139,23 @@ app.get("/api/files/:name", (req, res) => {
 });
 app.get("/api/files", (req, res) => res.json([...store.data.files].reverse().slice(0, 50)));
 
+// ----- Notifications sur le téléphone et préparation automatique -----
+app.get("/api/push/key", (req, res) => res.json({ key: notify.vapidKeys().publicKey }));
+app.post("/api/push/subscribe", (req, res) => {
+  const sub = req.body?.subscription;
+  if (!sub?.endpoint) return res.status(400).json({ error: "Abonnement invalide" });
+  res.json({ ok: true, devices: notify.addSubscription(sub) });
+});
+app.post("/api/push/unsubscribe", (req, res) => { if (req.body?.endpoint) notify.removeSubscription(req.body.endpoint); res.json({ ok: true }); });
+app.post("/api/push/test", async (req, res) => res.json({ sent: await notify.notify({ title: "Mon Assistant", body: "Les notifications fonctionnent." }) }));
+app.get("/api/prefs", (req, res) => res.json({ dailyPrep: notify.settings().dailyPrep || { enabled: false, hour: "19:00" }, devices: notify.subscriptionCount() }));
+app.post("/api/prefs", (req, res) => {
+  const p = req.body?.dailyPrep;
+  if (p) notify.settings().dailyPrep = { enabled: Boolean(p.enabled), hour: /^\d{2}:\d{2}$/.test(p.hour || "") ? p.hour : "19:00" };
+  store.save();
+  res.json({ ok: true });
+});
+
 // ----- Réglages : signature manuscrite, connexion Google -----
 app.get("/api/settings", (req, res) => res.json({
   signature: fs.existsSync(signaturePath()),
@@ -175,3 +193,4 @@ app.use(express.static(path.join(here, "public"), { maxAge: "1h", index: "index.
 app.get("/{*any}", (req, res) => res.sendFile(path.join(here, "public", "index.html")));
 
 app.listen(PORT, () => console.log(`Assistant prêt sur http://localhost:${PORT}`));
+notify.startScheduler((history, text) => runTurn(history, text, () => {}));

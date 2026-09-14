@@ -43,7 +43,7 @@ export const baseToolDefinitions = [
   },
   {
     name: "create_task",
-    description: "Crée une tâche à faire.",
+    description: "Crée une tâche à faire. Pour un rappel (« rappelle-moi… »), donner une échéance avec l'heure (AAAA-MM-JJTHH:MM) : une notification sera envoyée sur le téléphone à ce moment-là (à 8h si seule la date est donnée).",
     strict: true,
     input_schema: {
       type: "object",

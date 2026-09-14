@@ -164,7 +164,7 @@ function showView(name) {
   for (const v of ["chat", "overview", "settings"]) $(`#view-${v}`).hidden = name !== v;
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === name));
   if (name === "overview") loadOverview();
-  if (name === "settings") loadSettings();
+  if (name === "settings") { loadSettings(); loadPrefs(); }
 }
 document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => showView(t.dataset.view)));
 
@@ -181,6 +181,8 @@ async function loadOverview() {
 async function init() {
   loadConversations();
   if (location.search.includes("google=ok")) { history.replaceState({}, "", "/"); showView("settings"); }
+  const convParam = new URLSearchParams(location.search).get("conv");
+  if (convParam) { history.replaceState({}, "", "/"); try { await openConversation(convParam); return; } catch {} }
   let last = null; try { last = localStorage.getItem("lastConv"); } catch {}
   if (last) { try { await openConversation(last); } catch { try { localStorage.removeItem("lastConv"); } catch {} } }
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -272,3 +274,31 @@ async function loadSettings() {
   });
   $("#sig-delete").addEventListener("click", async () => { if (confirm("Supprimer la signature ?")) { await api("/api/signature", { method: "DELETE" }); loadSettings(); } });
 })();
+
+// ----- Notifications (Web Push) et préférences -----
+function b64ToU8(b) { const s = atob(b.replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(s, (c) => c.charCodeAt(0)); }
+async function loadPrefs() {
+  const p = await api("/api/prefs");
+  $("#prep-enabled").checked = Boolean(p.dailyPrep?.enabled); $("#prep-hour").value = p.dailyPrep?.hour || "19:00";
+  const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const standalone = window.navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+  let sub = null; try { sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); } catch {}
+  const st = $("#push-status");
+  if (!supported) { st.textContent = standalone ? "Notifications non disponibles sur cet appareil." : "Ajoutez d'abord l'application à l'écran d'accueil (Partager → Sur l'écran d'accueil)."; st.className = "sub warn"; $("#push-on").hidden = true; }
+  else if (sub) { st.textContent = `Activées sur cet appareil (${p.devices} appareil${p.devices > 1 ? "s" : ""} au total).`; st.className = "sub ok"; $("#push-on").hidden = true; $("#push-test").hidden = false; }
+  else { st.textContent = "Non activées sur cet appareil."; st.className = "sub warn"; $("#push-on").hidden = false; $("#push-test").hidden = true; }
+}
+$("#push-on").addEventListener("click", async () => {
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") return alert("Les notifications ont été refusées. Vous pouvez les autoriser dans Réglages iPhone → Notifications → Assistant.");
+    const { key } = await api("/api/push/key");
+    const reg = await navigator.serviceWorker.ready;
+    const subscription = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(key) });
+    await api("/api/push/subscribe", { method: "POST", body: JSON.stringify({ subscription }) });
+    loadPrefs();
+  } catch (err) { alert("Activation impossible : " + err.message); }
+});
+$("#push-test").addEventListener("click", async () => { const r = await api("/api/push/test", { method: "POST" }); if (!r.sent) alert("Aucune notification envoyée : vérifiez l'activation."); });
+const savePrefs = () => api("/api/prefs", { method: "POST", body: JSON.stringify({ dailyPrep: { enabled: $("#prep-enabled").checked, hour: $("#prep-hour").value } }) });
+$("#prep-enabled").addEventListener("change", savePrefs); $("#prep-hour").addEventListener("change", savePrefs);

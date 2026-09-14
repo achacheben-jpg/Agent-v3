@@ -11,7 +11,9 @@ Dr Achache (médecin conseil, assistance aux victimes) :
   brouillons de réponse. Jamais d'envoi, jamais de suppression.
 - **Préparation de la journée du lendemain**, tâches et rappels, notes, mémoire durable (l'assistant retient vos préférences,
   vos correspondants, vos dossiers en cours).
-- **Photos et documents** : envoyez une photo de courrier ou un PDF, l'assistant le lit.
+- **Rapports Word** : évaluation Dintilhac, discussion médico-légale, liquidation chiffrée (style Quantum), rapport de conseil.
+- **Photos et documents** : envoyez une photo de courrier ou un PDF (synthèse de dossier…), l'assistant le lit.
+- **Notifications sur l'iPhone** : rappels à l'heure dite, et journée du lendemain préparée automatiquement chaque soir si vous l'activez.
 - **Recherche web** quand il faut une information à jour (adresse d'un expert, barème…).
 - Un onglet **Vue d'ensemble** (agenda, tâches, notes, mémoire) et un onglet **Réglages** (connexion Google, signature manuscrite dessinée au doigt, documents générés).
 
@@ -91,7 +93,8 @@ Avec Docker : `docker build -t assistant . && docker run -p 3000:3000 -e ANTHROP
 - `src/profile.js` : votre profil, vos règles et votre façon de travailler (à modifier pour changer un tarif, un contact…).
 - `src/tools.js` : les outils de base (agenda local, tâches, notes, mémoire).
 - `src/tools-pro.js` : les outils métier (documents PDF, créneaux, experts, Google Agenda, Gmail).
-- `src/documents.js` : la mise en page des PDF. `src/slots.js` : le calcul des créneaux. `src/google.js` : la connexion Google.
+- `src/documents.js` : la mise en page des PDF. `src/reports.js` : les rapports Word. `src/slots.js` : le calcul des créneaux.
+- `src/google.js` : la connexion Google. `src/notify.js` : notifications et préparation automatique. `src/seed.js` : mémoire de départ.
 - `deploy/install.sh` : installation sur un serveur (voir GUIDE-OVH.md).
 - `src/store.js` : l'enregistrement des données dans `data/db.json`.
 - `public/` : l'application affichée sur l'iPhone.
@@ -99,5 +102,5 @@ Avec Docker : `docker build -t assistant . && docker run -p 3000:3000 -e ANTHROP
 
 ## Et ensuite ?
 
-Pistes d'évolution : notifications de rappel sur le téléphone, accès à app.indemnisation.com,
-rapports Dintilhac et liquidations en Word.
+Pistes d'évolution : accès à app.indemnisation.com, lecture des pièces jointes des mails,
+synchronisation Doctolib.
