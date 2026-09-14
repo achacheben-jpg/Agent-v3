@@ -26,6 +26,10 @@ application classique. Pas besoin de passer par l'App Store.
    (gratuit pour créer un compte, environ 7 $/mois pour le forfait « Starter » qui garde vos données).
 3. **Un mot de passe** de votre choix pour protéger l'accès à l'application.
 
+## Installation sur votre propre serveur (VPS OVH)
+
+Vous avez déjà un serveur ? Suivez **[GUIDE-OVH.md](GUIDE-OVH.md)** : une commande à coller, quatre questions, et c'est en ligne.
+
 ## Installation en 10 minutes (Render)
 
 1. Créez un compte sur <https://render.com> et connectez-le à votre compte GitHub.
