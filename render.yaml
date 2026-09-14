@@ -1,0 +1,26 @@
+# Déploiement en un clic sur Render (https://render.com)
+services:
+  - type: web
+    name: mon-assistant
+    runtime: node
+    plan: starter
+    buildCommand: npm ci
+    startCommand: node server.js
+    healthCheckPath: /api/me
+    disk:
+      name: donnees
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /app/data
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
+      - key: USER_NAME
+        value: Ben
+      - key: TIMEZONE
+        value: Europe/Paris
+      - key: SESSION_SECRET
+        generateValue: true

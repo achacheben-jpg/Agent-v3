@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Mon Assistant</title>
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Assistant">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Écran de connexion -->
+  <section id="login" class="screen" hidden>
+    <div class="login-box">
+      <div class="logo">✦</div>
+      <h1>Mon Assistant</h1>
+      <p>Entrez votre mot de passe pour continuer.</p>
+      <form id="login-form">
+        <input id="password" type="password" placeholder="Mot de passe" autocomplete="current-password" required>
+        <button type="submit">Entrer</button>
+        <p id="login-error" class="error" hidden></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- Application -->
+  <section id="app" class="screen" hidden>
+    <header class="topbar">
+      <button id="btn-menu" class="icon-btn" aria-label="Conversations">☰</button>
+      <h1 id="conv-title">Mon Assistant</h1>
+      <button id="btn-new" class="icon-btn" aria-label="Nouvelle conversation">＋</button>
+    </header>
+
+    <main id="view-chat" class="view">
+      <!-- Aide à l'installation sur iPhone -->
+      <div id="install-tip" class="install-tip" hidden>
+        <p>Pour l'utiliser comme une application : touchez <strong>Partager</strong> <span class="ios-share">⎋</span> puis <strong>« Sur l'écran d'accueil »</strong>.</p>
+        <button id="btn-tip-close" class="link-btn">OK</button>
+      </div>
+      <div id="messages" class="messages">
+        <div class="welcome">
+          <div class="logo">✦</div>
+          <h2>Bonjour !</h2>
+          <p>Je gère votre agenda, vos tâches, vos notes et je me souviens de ce qui compte pour vous. Que puis-je faire ?</p>
+          <div class="suggestions">
+            <button class="chip" data-text="Qu'est-ce que j'ai de prévu cette semaine ?">Ma semaine</button>
+            <button class="chip" data-text="Qu'est-ce que j'ai à faire aujourd'hui ?">Mes tâches du jour</button>
+            <button class="chip" data-text="Rappelle-moi d'appeler le plombier demain à 9h">Créer un rappel</button>
+            <button class="chip" data-text="Aide-moi à organiser ma journée de demain">Organiser demain</button>
+          </div>
+        </div>
+      </div>
+      <form id="composer" class="composer">
+        <textarea id="input" rows="1" placeholder="Écrivez ou dictez votre message…" enterkeyhint="send"></textarea>
+        <button id="btn-send" type="submit" aria-label="Envoyer">↑</button>
+      </form>
+    </main>
+
+    <main id="view-overview" class="view" hidden>
+      <div class="overview">
+        <h2>Agenda à venir</h2>
+        <ul id="ov-events" class="list"></ul>
+        <h2>Tâches en cours</h2>
+        <ul id="ov-tasks" class="list"></ul>
+        <h2>Notes récentes</h2>
+        <ul id="ov-notes" class="list"></ul>
+        <h2>Ce que je sais de vous</h2>
+        <ul id="ov-memory" class="list"></ul>
+      </div>
+    </main>
+
+    <nav class="tabs">
+      <button class="tab active" data-view="chat">💬<span>Discussion</span></button>
+      <button class="tab" data-view="overview">📋<span>Vue d'ensemble</span></button>
+    </nav>
+
+    <!-- Tiroir des conversations -->
+    <aside id="drawer" class="drawer" hidden>
+      <div class="drawer-head">
+        <h2>Conversations</h2>
+        <button id="btn-close-drawer" class="icon-btn" aria-label="Fermer">✕</button>
+      </div>
+      <ul id="conv-list" class="list"></ul>
+      <button id="btn-logout" class="link-btn">Se déconnecter</button>
+    </aside>
+    <div id="backdrop" class="backdrop" hidden></div>
+  </section>
+
+  <script src="/app.js"></script>
+</body>
+</html>
