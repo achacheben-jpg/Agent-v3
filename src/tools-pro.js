@@ -5,14 +5,10 @@ import { generators, PREJUDICE_KEYS, todayFR } from "./documents.js";
 import { findSlots, formatSlots } from "./slots.js";
 import { rapportDocx } from "./reports.js";
 import * as google from "./google.js";
+import { nowLocal } from "./util.js";
 
 const S = (desc, extra = {}) => ({ type: "string", description: desc, ...extra });
 const strict = (props, desc) => ({ description: desc, strict: true, input_schema: { type: "object", additionalProperties: false, properties: props, required: Object.keys(props) } });
-const TZ = () => process.env.TIMEZONE || "Europe/Paris";
-
-export function nowLocal() {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: TZ(), year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date()).replace(" ", "T");
-}
 
 function registerFile(f) {
   const rec = { id: f.id, filename: f.filename, kind: f.kind, url: f.url, createdAt: new Date().toISOString() };

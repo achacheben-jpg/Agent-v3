@@ -39,14 +39,15 @@ function sessionToken() {
 }
 function isAuthed(req) {
   if (!APP_PASSWORD) return true;
-  const c = req.cookies?.session || "";
-  const expected = sessionToken();
-  return c.length === expected.length && crypto.timingSafeEqual(Buffer.from(c), Buffer.from(expected));
+  const c = Buffer.from(String(req.cookies?.session || ""));
+  const expected = Buffer.from(sessionToken());
+  return c.length === expected.length && crypto.timingSafeEqual(c, expected);
 }
 
 app.post("/api/login", (req, res) => {
-  const pwd = String(req.body?.password || "");
-  const ok = !APP_PASSWORD || (pwd.length === APP_PASSWORD.length && crypto.timingSafeEqual(Buffer.from(pwd), Buffer.from(APP_PASSWORD)));
+  const pwd = Buffer.from(String(req.body?.password || ""));
+  const expected = Buffer.from(APP_PASSWORD);
+  const ok = !APP_PASSWORD || (pwd.length === expected.length && crypto.timingSafeEqual(pwd, expected));
   if (!ok) return res.status(401).json({ error: "Mot de passe incorrect" });
   res.cookie("session", sessionToken(), { httpOnly: true, sameSite: "lax", secure: req.secure, maxAge: 365 * 24 * 3600 * 1000 });
   res.json({ ok: true });

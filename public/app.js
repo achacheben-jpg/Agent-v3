@@ -101,7 +101,7 @@ async function send(text) {
           assistantEl.innerHTML = render(buffer); scrollBottom();
         }
         else if (ev.type === "tool") { setStatus(ev.label + "…"); }
-        else if (ev.type === "file") { setStatus(""); addFileCard(ev.file); assistantEl = null; }
+        else if (ev.type === "file") { setStatus(""); addFileCard(ev.file); assistantEl = null; buffer = ""; }
         else if (ev.type === "error") { setStatus(""); addMessage("assistant", "Désolé, une erreur est survenue : " + ev.message, { error: true }); }
         else if (ev.type === "done") { setStatus(""); $("#conv-title").textContent = ev.title; }
       }

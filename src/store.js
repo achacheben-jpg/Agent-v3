@@ -2,8 +2,9 @@
 // Tout est gardé dans data/db.json : conversations, tâches, agenda, notes, mémoire.
 import fs from "node:fs";
 import path from "node:path";
+import { dataDir } from "./util.js";
 
-const DATA_DIR = process.env.DATA_DIR || path.resolve("data");
+const DATA_DIR = dataDir();
 const DB_FILE = path.join(DATA_DIR, "db.json");
 
 const EMPTY = {

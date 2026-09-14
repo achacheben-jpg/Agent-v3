@@ -4,10 +4,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { toolDefinitions, toolLabels, executeTool, memorySummary } from "./toolset.js";
 import { PROFILE_PROMPT } from "./profile.js";
 import * as google from "./google.js";
-import { hasSignature } from "./documents.js";
+import { hasSignature, filesDir } from "./documents.js";
+import { TZ, nowLocal } from "./util.js";
+import fs from "node:fs";
+import path from "node:path";
+import { newId } from "./store.js";
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-5";
-const TIMEZONE = process.env.TIMEZONE || "Europe/Paris";
+const TIMEZONE = TZ();
 const MAX_TOOL_ROUNDS = 16;
 
 let client = null;
@@ -42,8 +46,7 @@ function formatNow() {
   const d = new Date();
   const date = new Intl.DateTimeFormat("fr-FR", { timeZone: TIMEZONE, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(d);
   const time = new Intl.DateTimeFormat("fr-FR", { timeZone: TIMEZONE, hour: "2-digit", minute: "2-digit" }).format(d);
-  const iso = new Intl.DateTimeFormat("sv-SE", { timeZone: TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(d).replace(" ", "T");
-  return `${date}, ${time} (ISO : ${iso})`;
+  return `${date}, ${time} (ISO : ${nowLocal(d)})`;
 }
 
 function buildSystem() {
@@ -61,17 +64,47 @@ function buildTools() {
   return [...toolDefinitions(), { type: "web_search_20260209", name: "web_search", max_uses: 3 }];
 }
 
-/** Construit le contenu du message utilisateur (texte + pièces jointes éventuelles). */
+// ----- Pièces jointes -----
+// Les photos et PDF envoyés par Ben sont enregistrés sur le disque ; l'historique de la
+// conversation ne garde qu'une référence (« _ref ») pour rester léger. Au moment d'appeler
+// l'API, hydrate() remet le contenu en place.
+function attachmentsDir() { const d = path.join(filesDir(), "attachments"); fs.mkdirSync(d, { recursive: true }); return d; }
+
+/** Construit le contenu du message utilisateur (texte + pièces jointes éventuelles), forme stockée. */
 export function userContent(text, attachments = []) {
   if (!attachments.length) return text;
   const blocks = [];
   for (const a of attachments) {
-    if (a.type.startsWith("image/")) blocks.push({ type: "image", source: { type: "base64", media_type: a.type, data: a.data } });
-    else if (a.type === "application/pdf") blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: a.data }, title: a.name });
-    else if (a.type.startsWith("text/")) blocks.push({ type: "document", source: { type: "text", media_type: "text/plain", data: Buffer.from(a.data, "base64").toString("utf8") }, title: a.name });
+    const file = `${newId()}_${String(a.name || "piece").replace(/[^a-zA-Z0-9._-]+/g, "_")}`;
+    fs.writeFileSync(path.join(attachmentsDir(), file), Buffer.from(a.data, "base64"));
+    if (a.type.startsWith("image/")) blocks.push({ type: "image", source: { type: "base64", media_type: a.type, data: "" }, _ref: file });
+    else if (a.type === "application/pdf") blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: "" }, title: a.name, _ref: file });
+    else if (a.type.startsWith("text/")) blocks.push({ type: "document", source: { type: "text", media_type: "text/plain", data: "" }, title: a.name, _ref: file });
   }
-  blocks.push({ type: "text", text: text || "(voir pièce jointe)" });
+  // Point de cache sur le texte : les pièces jointes qui précèdent sont mises en cache pour les tours suivants.
+  blocks.push({ type: "text", text: text || "(voir pièce jointe)", cache_control: { type: "ephemeral" } });
   return blocks;
+}
+
+/** Version « prête pour l'API » de l'historique : recharge les pièces jointes depuis le disque. */
+export function hydrate(messages) {
+  // Au plus 3 points de cache sur les messages (le prompt système en utilise déjà un).
+  let cacheable = 3;
+  return [...messages].reverse().map((m) => {
+    if (!Array.isArray(m.content)) return m;
+    const content = m.content.map((b) => {
+      if (b._ref) {
+        const { _ref, ...rest } = b;
+        let data = "";
+        try { const buf = fs.readFileSync(path.join(attachmentsDir(), _ref)); data = rest.source.type === "text" ? buf.toString("utf8") : buf.toString("base64"); }
+        catch { return { type: "text", text: `(pièce jointe ${_ref} indisponible)` }; }
+        return { ...rest, source: { ...rest.source, data } };
+      }
+      if (b.cache_control) { if (cacheable > 0) { cacheable--; return b; } const { cache_control, ...rest } = b; return rest; }
+      return b;
+    });
+    return { ...m, content };
+  }).reverse();
 }
 
 /**
@@ -96,7 +129,7 @@ export async function runTurn(history, userText, onEvent) {
       output_config: { effort: "medium" },
       system: buildSystem(),
       tools: buildTools(),
-      messages,
+      messages: hydrate(messages),
     });
 
     stream.on("text", (delta) => {

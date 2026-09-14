@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DOCTOR, BILLING } from "./profile.js";
 import { newId } from "./store.js";
+import { dataDir, TZ } from "./util.js";
 
 const mm = 72 / 25.4;
 const A4 = [595.28, 841.89];
@@ -13,14 +14,13 @@ const LEFT = 25 * mm;
 const RIGHT = A4[0] - 25 * mm;
 const TEXT_WIDTH = RIGHT - LEFT;
 
-function dataDir() { return process.env.DATA_DIR || path.resolve("data"); }
 export function filesDir() { const d = path.join(dataDir(), "files"); fs.mkdirSync(d, { recursive: true }); return d; }
 export function signaturePath() { return path.join(dataDir(), "signature.png"); }
 export function hasSignature() { return fs.existsSync(signaturePath()); }
 
 export function todayFR() {
   const d = new Date();
-  return new Intl.DateTimeFormat("fr-FR", { timeZone: process.env.TIMEZONE || "Europe/Paris", day: "2-digit", month: "2-digit", year: "numeric" }).format(d);
+  return new Intl.DateTimeFormat("fr-FR", { timeZone: TZ(), day: "2-digit", month: "2-digit", year: "numeric" }).format(d);
 }
 
 // ----- Briques communes -----

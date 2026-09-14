@@ -6,9 +6,8 @@ import path from "node:path";
 import webpush from "web-push";
 import { store } from "./store.js";
 import * as google from "./google.js";
+import { dataDir, nowLocal } from "./util.js";
 
-const TZ = () => process.env.TIMEZONE || "Europe/Paris";
-function dataDir() { return process.env.DATA_DIR || path.resolve("data"); }
 function vapidFile() { return path.join(dataDir(), "vapid.json"); }
 
 let keys = null;
@@ -41,10 +40,6 @@ export async function notify({ title, body, url = "/" }) {
 }
 
 // ------------------------------------------------------------ Planification
-function nowLocal() {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: TZ(), year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date()).replace(" ", "T");
-}
-
 export function settings() { const db = store.data; if (!db.settings) db.settings = {}; return db.settings; }
 
 async function checkReminders() {

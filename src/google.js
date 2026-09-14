@@ -3,6 +3,7 @@
 // chercher des mails et préparer des brouillons. Jamais d'envoi de mail.
 import fs from "node:fs";
 import path from "node:path";
+import { TZ, dataDir, nowLocal } from "./util.js";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/calendar.events",
@@ -10,7 +11,6 @@ const SCOPES = [
   "https://www.googleapis.com/auth/gmail.modify",
 ];
 
-function dataDir() { return process.env.DATA_DIR || path.resolve("data"); }
 function tokenFile() { return path.join(dataDir(), "google-token.json"); }
 
 export function isConfigured() { return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET); }
@@ -69,15 +69,16 @@ async function api(url, opts = {}) {
 }
 
 // ----------------------------------------------------------------- Agenda
-const TZ = () => process.env.TIMEZONE || "Europe/Paris";
 
 function localIso(dt) {
   // Google renvoie « 2026-09-15T10:00:00+02:00 » ; on garde « 2026-09-15T10:00 » en heure locale de Ben.
   if (!dt) return "";
   if (dt.length === 10) return dt;
-  const d = new Date(dt);
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: TZ(), year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(d).replace(" ", "T");
+  return nowLocal(new Date(dt));
 }
+
+// Google exige des secondes dans les dates (« 2026-09-21T10:00:00 »).
+function withSeconds(dt) { return /T\d{2}:\d{2}$/.test(dt) ? dt + ":00" : dt; }
 
 export async function listCalendars() {
   const j = await api("https://www.googleapis.com/calendar/v3/users/me/calendarList");
@@ -115,7 +116,7 @@ export async function listEvents({ from, to, calendarId = "primary", withDescrip
 }
 
 export async function createEvent({ title, start, end, description = "", location = "", colorId = "", calendarId = "primary" }) {
-  const body = { summary: title, description, location, start: { dateTime: start, timeZone: TZ() }, end: { dateTime: end, timeZone: TZ() } };
+  const body = { summary: title, description, location, start: { dateTime: withSeconds(start), timeZone: TZ() }, end: { dateTime: withSeconds(end), timeZone: TZ() } };
   if (colorId) body.colorId = String(colorId);
   const e = await api(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`, { method: "POST", body: JSON.stringify(body) });
   return { id: e.id, link: e.htmlLink };
@@ -126,8 +127,8 @@ export async function updateEvent({ id, calendarId = "primary", ...fields }) {
   if (fields.title) body.summary = fields.title;
   if (fields.description) body.description = fields.description;
   if (fields.location) body.location = fields.location;
-  if (fields.start) body.start = { dateTime: fields.start, timeZone: TZ() };
-  if (fields.end) body.end = { dateTime: fields.end, timeZone: TZ() };
+  if (fields.start) body.start = { dateTime: withSeconds(fields.start), timeZone: TZ() };
+  if (fields.end) body.end = { dateTime: withSeconds(fields.end), timeZone: TZ() };
   if (fields.colorId) body.colorId = String(fields.colorId);
   const e = await api(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(body) });
   return { id: e.id, link: e.htmlLink };
@@ -167,17 +168,16 @@ function attachmentsOf(payload) {
 export async function searchThreads({ query, max = 15 }) {
   const p = new URLSearchParams({ q: query, maxResults: String(Math.min(max, 50)) });
   const j = await api(`https://gmail.googleapis.com/gmail/v1/users/me/threads?${p}`);
-  const threads = [];
-  for (const t of (j.threads || [])) {
-    const d = await api(`https://gmail.googleapis.com/gmail/v1/users/me/threads/${t.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`);
+  // Les fils sont indépendants : on les lit en parallèle.
+  const details = await Promise.all((j.threads || []).map((t) => api(`https://gmail.googleapis.com/gmail/v1/users/me/threads/${t.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`)));
+  return details.map((d, i) => {
     const msgs = d.messages || [];
     const last = msgs[msgs.length - 1];
-    threads.push({
-      id: t.id, subject: headerOf(msgs[0], "Subject"), from: headerOf(last, "From"), date: headerOf(last, "Date"),
+    return {
+      id: j.threads[i].id, subject: headerOf(msgs[0], "Subject"), from: headerOf(last, "From"), date: headerOf(last, "Date"),
       messages: msgs.length, unread: msgs.some((m) => (m.labelIds || []).includes("UNREAD")), snippet: last?.snippet || "",
-    });
-  }
-  return threads;
+    };
+  });
 }
 
 export async function readThread({ id, maxChars = 6000 }) {

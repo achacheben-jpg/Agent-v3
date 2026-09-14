@@ -249,7 +249,8 @@ export function executeBaseTool(name, input) {
     case "update_task": {
       const t = db.tasks.find((x) => x.id === input.id);
       if (!t) return `Aucune tâche avec l'id ${input.id}.`;
-      for (const k of ["title", "due", "priority", "notes"]) if (input[k]) t[k] = input[k];
+      for (const k of ["title", "priority", "notes"]) if (input[k]) t[k] = input[k];
+      if (input.due && input.due !== t.due) { t.due = input.due; t.notified = false; } // nouvelle échéance = nouveau rappel
       if (input.done === "true") t.done = true;
       if (input.done === "false") t.done = false;
       store.save();
@@ -262,8 +263,9 @@ export function executeBaseTool(name, input) {
       return `Tâche supprimée : ${t.title}`;
     }
     case "list_events": {
+      const to = input.to && input.to.length === 10 ? input.to + "T23:59" : input.to; // « to » inclus jusqu'à la fin de la journée
       const list = db.events
-        .filter((e) => (!input.from || (e.end || e.start) >= input.from) && (!input.to || e.start <= input.to))
+        .filter((e) => (!input.from || (e.end || e.start) >= input.from) && (!to || e.start <= to))
         .sort((a, b) => a.start.localeCompare(b.start));
       return list.length ? list.map(summarizeEvent).join("\n") : "Aucun événement sur cette période.";
     }
