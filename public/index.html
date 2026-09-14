@@ -47,16 +47,21 @@
         <div class="welcome">
           <div class="logo">✦</div>
           <h2>Bonjour !</h2>
-          <p>Je gère votre agenda, vos tâches, vos notes et je me souviens de ce qui compte pour vous. Que puis-je faire ?</p>
+          <p>Ordonnances, notes d'honoraires, conclusions, créneaux, mails, agenda : dites-moi.</p>
           <div class="suggestions">
-            <button class="chip" data-text="Qu'est-ce que j'ai de prévu cette semaine ?">Ma semaine</button>
-            <button class="chip" data-text="Qu'est-ce que j'ai à faire aujourd'hui ?">Mes tâches du jour</button>
-            <button class="chip" data-text="Rappelle-moi d'appeler le plombier demain à 9h">Créer un rappel</button>
-            <button class="chip" data-text="Aide-moi à organiser ma journée de demain">Organiser demain</button>
+            <button class="chip" data-text="Prépare ma journée de demain">Préparer demain</button>
+            <button class="chip" data-text="Trie mes mails non lus">Trier mes mails</button>
+            <button class="chip" data-text="Trouve-moi un créneau de 20 min">Créneau 20 min</button>
+            <button class="chip" data-text="Ordonnance pour ">Ordonnance</button>
+            <button class="chip" data-text="Facture pour l'assistance à l'expertise de ">Note d'honoraires</button>
+            <button class="chip" data-text="Conclusions d'expertise : ">Conclusions</button>
           </div>
         </div>
       </div>
+      <div id="attach-strip" class="attach-strip" hidden></div>
       <form id="composer" class="composer">
+        <input id="file-input" type="file" accept="image/*,application/pdf,text/plain" multiple hidden>
+        <button id="btn-attach" type="button" class="attach-btn" aria-label="Joindre une photo ou un document">📎</button>
         <textarea id="input" rows="1" placeholder="Écrivez ou dictez votre message…" enterkeyhint="send"></textarea>
         <button id="btn-send" type="submit" aria-label="Envoyer">↑</button>
       </form>
@@ -75,9 +80,31 @@
       </div>
     </main>
 
+    <main id="view-settings" class="view" hidden>
+      <div class="overview">
+        <h2>Google Agenda et Gmail</h2>
+        <div id="google-box" class="card"></div>
+        <h2>Signature manuscrite</h2>
+        <div class="card">
+          <p id="sig-status" class="sub"></p>
+          <img id="sig-preview" alt="Signature" hidden>
+          <canvas id="sig-pad" width="600" height="240"></canvas>
+          <div class="row">
+            <button id="sig-clear" class="btn-secondary">Effacer</button>
+            <button id="sig-save" class="btn-primary">Enregistrer</button>
+            <button id="sig-delete" class="link-btn" hidden>Supprimer</button>
+          </div>
+          <p class="sub">Dessinez votre signature avec le doigt : elle sera apposée sur les ordonnances, notes d'honoraires, certificats et conclusions.</p>
+        </div>
+        <h2>Documents générés</h2>
+        <ul id="files-list" class="list"></ul>
+      </div>
+    </main>
+
     <nav class="tabs">
       <button class="tab active" data-view="chat">💬<span>Discussion</span></button>
       <button class="tab" data-view="overview">📋<span>Vue d'ensemble</span></button>
+      <button class="tab" data-view="settings">⚙️<span>Réglages</span></button>
     </nav>
 
     <!-- Tiroir des conversations -->

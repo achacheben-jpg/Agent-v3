@@ -6,7 +6,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { store } from "./src/store.js";
 import Anthropic from "@anthropic-ai/sdk";
-import { runTurn } from "./src/agent.js";
+import fs from "node:fs";
+import { runTurn, userContent } from "./src/agent.js";
+import * as google from "./src/google.js";
+import { filesDir, signaturePath } from "./src/documents.js";
+import { seedIfEmpty } from "./src/seed.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -24,7 +28,8 @@ if (!APP_PASSWORD) {
 
 const app = express();
 app.set("trust proxy", 1);
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "40mb" }));
+seedIfEmpty();
 app.use(cookieParser());
 
 // ----- Authentification très simple par mot de passe partagé -----
@@ -80,9 +85,10 @@ app.get("/api/overview", (req, res) => {
 
 // ----- Chat en streaming (Server-Sent Events) -----
 app.post("/api/chat", async (req, res) => {
-  const { conversationId, text } = req.body || {};
+  const { conversationId, text, attachments } = req.body || {};
   const userText = String(text || "").trim();
-  if (!userText) return res.status(400).json({ error: "Message vide" });
+  const atts = Array.isArray(attachments) ? attachments.filter((a) => a && a.data && a.type).slice(0, 5) : [];
+  if (!userText && !atts.length) return res.status(400).json({ error: "Message vide" });
 
   let conv = conversationId ? store.getConversation(conversationId) : null;
   if (!conv) conv = store.createConversation();
@@ -94,13 +100,13 @@ app.post("/api/chat", async (req, res) => {
   const send = (event) => res.write(`data: ${JSON.stringify(event)}\n\n`);
   send({ type: "start", conversationId: conv.id });
 
-  conv.display.push({ role: "user", text: userText, at: new Date().toISOString() });
-  if (conv.messages.length === 0) conv.title = userText.slice(0, 60);
+  conv.display.push({ role: "user", text: userText, attachments: atts.map((a) => a.name || a.type), at: new Date().toISOString() });
+  if (conv.messages.length === 0) conv.title = (userText || atts[0]?.name || "Pièce jointe").slice(0, 60);
 
   try {
-    const { messages, text: reply } = await runTurn(conv.messages, userText, send);
+    const { messages, text: reply, files } = await runTurn(conv.messages, userContent(userText, atts), send);
     conv.messages = messages;
-    conv.display.push({ role: "assistant", text: reply, at: new Date().toISOString() });
+    conv.display.push({ role: "assistant", text: reply, files: files.map((f) => ({ filename: f.filename, url: f.url, kind: f.kind })), at: new Date().toISOString() });
     store.updateConversation(conv);
     send({ type: "done", title: conv.title });
   } catch (err) {
@@ -120,6 +126,49 @@ function friendlyError(err) {
   if (err instanceof Anthropic.APIConnectionError) return "impossible de joindre le service.";
   return err?.message || "erreur inconnue.";
 }
+
+
+// ----- Documents générés (PDF) -----
+app.get("/api/files/:name", (req, res) => {
+  const name = path.basename(req.params.name);
+  const file = path.join(filesDir(), name);
+  if (!fs.existsSync(file)) return res.status(404).send("Document introuvable");
+  res.setHeader("Content-Disposition", `inline; filename="${name.replace(/^[a-z0-9]+_/, "")}"`);
+  res.sendFile(file);
+});
+app.get("/api/files", (req, res) => res.json([...store.data.files].reverse().slice(0, 50)));
+
+// ----- Réglages : signature manuscrite, connexion Google -----
+app.get("/api/settings", (req, res) => res.json({
+  signature: fs.existsSync(signaturePath()),
+  google: { configured: google.isConfigured(), connected: google.isConnected(), email: google.connectedEmail() },
+  userName: process.env.USER_NAME || "",
+}));
+app.post("/api/signature", (req, res) => {
+  const data = String(req.body?.data || "");
+  const m = data.match(/^data:image\/png;base64,(.+)$/);
+  if (!m) return res.status(400).json({ error: "Image PNG attendue" });
+  fs.mkdirSync(path.dirname(signaturePath()), { recursive: true });
+  fs.writeFileSync(signaturePath(), Buffer.from(m[1], "base64"));
+  res.json({ ok: true });
+});
+app.delete("/api/signature", (req, res) => { try { fs.unlinkSync(signaturePath()); } catch {} res.json({ ok: true }); });
+app.get("/api/signature", (req, res) => fs.existsSync(signaturePath()) ? res.sendFile(signaturePath()) : res.status(404).end());
+
+function redirectUri(req) { return `${req.protocol}://${req.get("host")}/auth/google/callback`; }
+app.get("/api/google/url", (req, res) => {
+  if (!google.isConfigured()) return res.status(400).json({ error: "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET manquants sur le serveur (voir GUIDE-GOOGLE.md)." });
+  const state = crypto.randomBytes(16).toString("hex");
+  res.cookie("gstate", state, { httpOnly: true, sameSite: "lax", secure: req.secure, maxAge: 600000 });
+  res.json({ url: google.authUrl(redirectUri(req), state) });
+});
+app.get("/auth/google/callback", async (req, res) => {
+  if (!isAuthed(req)) return res.status(401).send("Connectez-vous d'abord à l'application.");
+  if (!req.query.code || req.query.state !== req.cookies?.gstate) return res.status(400).send("Demande invalide, recommencez depuis les réglages.");
+  try { await google.exchangeCode(String(req.query.code), redirectUri(req)); res.redirect("/?google=ok"); }
+  catch (err) { res.status(500).send("Connexion Google impossible : " + err.message); }
+});
+app.post("/api/google/disconnect", (req, res) => { google.disconnect(); res.json({ ok: true }); });
 
 // ----- Fichiers de l'application -----
 app.use(express.static(path.join(here, "public"), { maxAge: "1h", index: "index.html" }));

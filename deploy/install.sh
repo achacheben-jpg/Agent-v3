@@ -80,6 +80,7 @@ if [ -d "$APP_DIR/.git" ]; then
   git -C "$APP_DIR" checkout --quiet "$BRANCH" 2>/dev/null || true
   git -C "$APP_DIR" reset --quiet --hard "origin/$BRANCH" 2>/dev/null || warn "Mise à jour impossible, on garde la version en place."
 else
+  if [ -n "${GITHUB_TOKEN:-}" ]; then clone_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"; fi
   if ! git clone --quiet --depth 1 --branch "$BRANCH" "$clone_url" "$APP_DIR" 2>/dev/null; then
     warn "Le dépôt GitHub est privé. Il faut un code d'accès (token) GitHub."
     echo "   Créez-le sur https://github.com/settings/personal-access-tokens (Fine-grained, accès en lecture au dépôt ${REPO})."
@@ -112,6 +113,13 @@ ask APP_PASSWORD     "Mot de passe pour ouvrir l'application" "" secret
 ask USER_NAME        "Votre prénom" "Ben"
 ask DOMAIN           "Adresse du site (nom de domaine ou nom du VPS)" "$default_domain"
 : "${TIMEZONE:=Europe/Paris}"
+if [ -z "${GOOGLE_CLIENT_ID:-}" ]; then
+  echo
+  echo "  Connexion Google Agenda + Gmail (facultatif, voir GUIDE-GOOGLE.md) — Entrée pour passer."
+  printf "Google client ID : "; read -r GOOGLE_CLIENT_ID </dev/tty || GOOGLE_CLIENT_ID=""
+  if [ -n "$GOOGLE_CLIENT_ID" ]; then printf "Google client secret : "; read -rs GOOGLE_CLIENT_SECRET </dev/tty; echo; fi
+fi
+: "${GOOGLE_CLIENT_ID:=}"; : "${GOOGLE_CLIENT_SECRET:=}"
 SESSION_SECRET="${SESSION_SECRET:-$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')}"
 
 umask 077
@@ -122,6 +130,8 @@ USER_NAME=${USER_NAME}
 TIMEZONE=${TIMEZONE}
 DOMAIN=${DOMAIN}
 SESSION_SECRET=${SESSION_SECRET}
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
 DATA_DIR=${DATA_DIR}
 PORT=${PORT}
 NODE_ENV=production

@@ -12,6 +12,8 @@ const EMPTY = {
   events: [],        // { id, title, start, end, location, domain, notes }
   notes: [],         // { id, title, content, tags, createdAt, updatedAt }
   memory: [],        // { id, fact, createdAt }
+  experts: [],       // { id, name, address, travelMinutes, notes }
+  files: [],         // { id, filename, kind, url, createdAt }
 };
 
 let db = null;

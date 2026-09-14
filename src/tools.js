@@ -25,7 +25,7 @@ function summarizeNote(n) {
   return `(${n.id}) ${n.title}${n.tags?.length ? ` [${n.tags.join(", ")}]` : ""}\n${n.content}`;
 }
 
-export const toolDefinitions = [
+export const baseToolDefinitions = [
   {
     name: "list_tasks",
     description: "Liste les tâches (à faire). Filtrable par statut, domaine (pro/perso) et échéance. Utiliser pour répondre à « qu'est-ce que j'ai à faire ? ».",
@@ -211,7 +211,7 @@ export const toolDefinitions = [
 ];
 
 // Étiquette lisible affichée dans l'application pendant que l'outil tourne.
-export const toolLabels = {
+export const baseToolLabels = {
   list_tasks: "Consultation des tâches",
   create_task: "Ajout d'une tâche",
   update_task: "Mise à jour d'une tâche",
@@ -228,7 +228,7 @@ export const toolLabels = {
   web_search: "Recherche sur le web",
 };
 
-export function executeTool(name, input) {
+export function executeBaseTool(name, input) {
   const db = store.data;
   switch (name) {
     case "list_tasks": {

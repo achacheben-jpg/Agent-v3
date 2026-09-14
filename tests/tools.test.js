@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "agent-test-"));
-const { executeTool, toolDefinitions } = await import("../src/tools.js");
+const { executeBaseTool: executeTool, baseToolDefinitions: toolDefinitions } = await import("../src/tools.js");
 
 test("chaque outil a un schéma strict", () => {
   for (const t of toolDefinitions) {

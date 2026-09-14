@@ -86,3 +86,28 @@ button { font: inherit; cursor: pointer; }
 .install-tip p { flex: 1; }
 .install-tip p { margin: 0 0 4px; }
 .ios-share { display: inline-block; border: 1px solid var(--muted); border-radius: 4px; padding: 0 4px; font-size: 12px; }
+
+/* Pièces jointes */
+.composer .attach-btn { background: none; border: 0; color: var(--muted); font-size: 22px; width: 36px; height: 40px; border-radius: 0; }
+.attach-strip { display: flex; gap: 8px; padding: 6px 12px 0; background: var(--panel); flex-wrap: wrap; }
+.attach-strip .att { position: relative; background: var(--panel-2); border-radius: 10px; padding: 6px 28px 6px 10px; font-size: 13px; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-strip .att img { height: 40px; border-radius: 6px; vertical-align: middle; margin-right: 6px; }
+.attach-strip .att .x { position: absolute; right: 6px; top: 4px; background: none; border: 0; color: var(--muted); font-size: 16px; }
+.msg .att-note { display: block; font-size: 12px; opacity: .8; margin-top: 4px; }
+
+/* Cartes de documents */
+.file-card { align-self: flex-start; display: flex; align-items: center; gap: 10px; background: var(--panel-2); border: 1px solid #475569; border-radius: 14px; padding: 10px 14px; text-decoration: none; color: var(--text); max-width: 88%; }
+.file-card .ico { font-size: 26px; }
+.file-card .name { font-weight: 600; font-size: 14px; word-break: break-all; }
+.file-card .hint { display: block; color: var(--muted); font-size: 12px; }
+
+/* Réglages */
+.card { background: var(--panel); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+.card p { margin: 6px 0; }
+.card .sub { color: var(--muted); font-size: 13px; }
+.row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.btn-primary { background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 10px 14px; font-weight: 600; }
+.btn-secondary { background: var(--panel-2); color: var(--text); border: 0; border-radius: 10px; padding: 10px 14px; }
+#sig-pad { width: 100%; max-width: 100%; height: auto; aspect-ratio: 5 / 2; background: #fff; border-radius: 10px; touch-action: none; display: block; }
+#sig-preview { max-height: 90px; background: #fff; border-radius: 10px; padding: 6px; display: block; margin-bottom: 10px; }
+.ok { color: #34d399; } .warn { color: #fbbf24; }

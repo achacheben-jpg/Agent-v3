@@ -49,9 +49,19 @@ function addMessage(role, text, extra = {}) {
   const el = document.createElement("div");
   el.className = `msg ${role}` + (extra.error ? " error" : "");
   el.innerHTML = role === "assistant" ? render(text) : escapeHtml(text);
+  if (role === "user" && extra.attachments?.length) el.innerHTML += `<span class="att-note">📎 ${escapeHtml(extra.attachments.join(", "))}</span>`;
   messagesEl.appendChild(el);
+  for (const f of extra.files || []) addFileCard(f);
   scrollBottom();
   return el;
+}
+function addFileCard(f) {
+  const a = document.createElement("a");
+  a.className = "file-card"; a.href = f.url; a.target = "_blank"; a.rel = "noopener";
+  const labels = { ordonnance: "Ordonnance", facture: "Note d'honoraires", conclusions: "Conclusions d'expertise", certificat: "Certificat médical", courrier: "Courrier" };
+  a.innerHTML = `<span class="ico">📄</span><span><span class="name">${escapeHtml(f.filename)}</span><span class="hint">${labels[f.kind] || "Document"} · toucher pour ouvrir ou partager</span></span>`;
+  messagesEl.appendChild(a);
+  scrollBottom();
 }
 function setStatus(text) {
   let s = $(".status");
@@ -63,15 +73,16 @@ function scrollBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
 
 async function send(text) {
   text = text.trim();
-  if (!text || state.sending) return;
+  if ((!text && !pending.length) || state.sending) return;
   state.sending = true; $("#btn-send").disabled = true;
-  addMessage("user", text);
+  const attachments = pending.splice(0); renderStrip();
+  addMessage("user", text, { attachments: attachments.map((a) => a.name) });
   $("#input").value = ""; autosize();
   setStatus("Je réfléchis…");
 
   let assistantEl = null; let buffer = "";
   try {
-    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: state.conversationId, text }) });
+    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversationId: state.conversationId, text, attachments }) });
     if (r.status === 401) { showLogin(); return; }
     const reader = r.body.getReader(); const dec = new TextDecoder(); let pending = "";
     while (true) {
@@ -90,6 +101,7 @@ async function send(text) {
           assistantEl.innerHTML = render(buffer); scrollBottom();
         }
         else if (ev.type === "tool") { setStatus(ev.label + "…"); }
+        else if (ev.type === "file") { setStatus(""); addFileCard(ev.file); assistantEl = null; }
         else if (ev.type === "error") { setStatus(""); addMessage("assistant", "Désolé, une erreur est survenue : " + ev.message, { error: true }); }
         else if (ev.type === "done") { setStatus(""); $("#conv-title").textContent = ev.title; }
       }
@@ -131,7 +143,7 @@ async function openConversation(id) {
   const c = await api(`/api/conversations/${id}`);
   state.conversationId = c.id; $("#conv-title").textContent = c.title;
   messagesEl.innerHTML = "";
-  for (const m of c.display) addMessage(m.role, m.text, { error: m.error });
+  for (const m of c.display) addMessage(m.role, m.text, { error: m.error, files: m.files, attachments: m.attachments });
   showView("chat");
   try { localStorage.setItem("lastConv", c.id); } catch {}
 }
@@ -149,9 +161,10 @@ $("#btn-logout").addEventListener("click", async () => { await fetch("/api/logou
 
 // ----- Onglets -----
 function showView(name) {
-  $("#view-chat").hidden = name !== "chat"; $("#view-overview").hidden = name !== "overview";
+  for (const v of ["chat", "overview", "settings"]) $(`#view-${v}`).hidden = name !== v;
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === name));
   if (name === "overview") loadOverview();
+  if (name === "settings") loadSettings();
 }
 document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => showView(t.dataset.view)));
 
@@ -167,6 +180,7 @@ async function loadOverview() {
 // ----- Démarrage -----
 async function init() {
   loadConversations();
+  if (location.search.includes("google=ok")) { history.replaceState({}, "", "/"); showView("settings"); }
   let last = null; try { last = localStorage.getItem("lastConv"); } catch {}
   if (last) { try { await openConversation(last); } catch { try { localStorage.removeItem("lastConv"); } catch {} } }
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -180,4 +194,81 @@ $("#btn-tip-close").addEventListener("click", () => { $("#install-tip").hidden =
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
   const me = await fetch("/api/me").then((r) => r.json()).catch(() => ({ authed: false }));
   if (me.authed) { showApp(); init(); } else showLogin();
+})();
+
+// ----- Pièces jointes (photos, PDF) -----
+const pending = [];
+$("#btn-attach").addEventListener("click", () => $("#file-input").click());
+$("#file-input").addEventListener("change", async (e) => {
+  for (const file of e.target.files) {
+    if (pending.length >= 5) break;
+    try { pending.push(await prepareFile(file)); } catch (err) { alert("Fichier illisible : " + file.name); }
+  }
+  e.target.value = ""; renderStrip();
+});
+async function prepareFile(file) {
+  if (file.type.startsWith("image/")) {
+    // On réduit la photo (max 1800 px) pour un envoi rapide depuis le téléphone.
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 1800 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas"); c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const dataUrl = c.toDataURL("image/jpeg", 0.85);
+    return { name: file.name || "photo.jpg", type: "image/jpeg", data: dataUrl.split(",")[1], preview: dataUrl };
+  }
+  if (file.size > 25 * 1024 * 1024) throw new Error("trop volumineux");
+  const buf = await file.arrayBuffer();
+  let bin = ""; const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return { name: file.name, type: file.type || "application/octet-stream", data: btoa(bin) };
+}
+function renderStrip() {
+  const strip = $("#attach-strip");
+  strip.hidden = !pending.length; strip.innerHTML = "";
+  pending.forEach((a, i) => {
+    const d = document.createElement("div"); d.className = "att";
+    d.innerHTML = (a.preview ? `<img src="${a.preview}" alt="">` : "📄 ") + escapeHtml(a.name) + `<button class="x" aria-label="Retirer">✕</button>`;
+    d.querySelector(".x").addEventListener("click", () => { pending.splice(i, 1); renderStrip(); });
+    strip.appendChild(d);
+  });
+}
+
+// ----- Réglages -----
+async function loadSettings() {
+  const s = await api("/api/settings");
+  const g = $("#google-box");
+  if (!s.google.configured) {
+    g.innerHTML = `<p class="warn">Connexion Google pas encore préparée sur le serveur.</p><p class="sub">Il faut ajouter les deux codes Google (GOOGLE_CLIENT_ID et GOOGLE_CLIENT_SECRET) dans les réglages du serveur. Le guide GUIDE-GOOGLE.md explique comment les obtenir.</p>`;
+  } else if (s.google.connected) {
+    g.innerHTML = `<p class="ok">✔ Connecté${s.google.email ? " : " + escapeHtml(s.google.email) : ""}</p><p class="sub">L'assistant peut lire l'agenda, chercher des mails et préparer des brouillons. Il n'envoie jamais de mail.</p><div class="row"><button id="g-off" class="btn-secondary">Déconnecter</button></div>`;
+    $("#g-off").addEventListener("click", async () => { await api("/api/google/disconnect", { method: "POST" }); loadSettings(); });
+  } else {
+    g.innerHTML = `<p>Non connecté.</p><p class="sub">Autorisez l'accès à votre agenda et à Gmail pour les créneaux, le tri des mails et la préparation de journée.</p><div class="row"><button id="g-on" class="btn-primary">Connecter Google</button></div>`;
+    $("#g-on").addEventListener("click", async () => { const r = await api("/api/google/url"); if (r.url) location.href = r.url; else alert(r.error); });
+  }
+  $("#sig-status").textContent = s.signature ? "Signature enregistrée." : "Aucune signature enregistrée pour l'instant.";
+  $("#sig-status").className = "sub " + (s.signature ? "ok" : "warn");
+  $("#sig-preview").hidden = !s.signature; $("#sig-delete").hidden = !s.signature;
+  if (s.signature) $("#sig-preview").src = "/api/signature?" + Date.now();
+  const files = await api("/api/files");
+  $("#files-list").innerHTML = files.length ? files.map((f) => `<li><a class="file-card" href="${f.url}" target="_blank" rel="noopener"><span class="ico">📄</span><span><span class="name">${escapeHtml(f.filename)}</span><span class="hint">${new Date(f.createdAt).toLocaleString("fr-FR")}</span></span></a></li>`).join("") : '<li class="empty">Aucun document pour l\'instant.</li>';
+}
+
+// Pad de signature (dessin au doigt).
+(() => {
+  const pad = $("#sig-pad"); const ctx = pad.getContext("2d");
+  ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#000";
+  let drawing = false; let drawn = false;
+  const pos = (e) => { const r = pad.getBoundingClientRect(); return [(e.clientX - r.left) * pad.width / r.width, (e.clientY - r.top) * pad.height / r.height]; };
+  pad.addEventListener("pointerdown", (e) => { drawing = true; drawn = true; ctx.beginPath(); ctx.moveTo(...pos(e)); pad.setPointerCapture(e.pointerId); });
+  pad.addEventListener("pointermove", (e) => { if (!drawing) return; ctx.lineTo(...pos(e)); ctx.stroke(); });
+  const stop = () => { drawing = false; };
+  pad.addEventListener("pointerup", stop); pad.addEventListener("pointercancel", stop);
+  $("#sig-clear").addEventListener("click", () => { ctx.clearRect(0, 0, pad.width, pad.height); drawn = false; });
+  $("#sig-save").addEventListener("click", async () => {
+    if (!drawn) return alert("Dessinez d'abord votre signature.");
+    const r = await api("/api/signature", { method: "POST", body: JSON.stringify({ data: pad.toDataURL("image/png") }) });
+    if (r.ok) { ctx.clearRect(0, 0, pad.width, pad.height); drawn = false; loadSettings(); } else alert(r.error || "Erreur");
+  });
+  $("#sig-delete").addEventListener("click", async () => { if (confirm("Supprimer la signature ?")) { await api("/api/signature", { method: "DELETE" }); loadSettings(); } });
 })();

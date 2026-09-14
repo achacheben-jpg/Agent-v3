@@ -1,15 +1,19 @@
 # Mon Assistant — agent conversationnel pour iPhone
 
 Une application que vous ouvrez sur votre iPhone comme n'importe quelle autre, et à qui vous parlez
-(ou dictez) pour gérer votre vie professionnelle et personnelle :
+(ou dictez) pour gérer votre vie professionnelle et personnelle. Elle est adaptée à la pratique du
+Dr Achache (médecin conseil, assistance aux victimes) :
 
-- **Agenda** : ajouter, déplacer, consulter des rendez-vous (« Qu'est-ce que j'ai jeudi ? »).
-- **Tâches et rappels** : « Rappelle-moi d'appeler le plombier demain à 9h ».
-- **Notes** : « Note que le code du portail est 1234 ».
-- **Mémoire** : l'assistant retient ce qui compte pour vous (préférences, proches, habitudes) d'une conversation à l'autre.
-- **Recherche web** quand il faut une information à jour.
-- **Rédaction** : courriers, messages, préparation d'une journée, aide à la décision.
-- Un onglet **Vue d'ensemble** montre en un coup d'œil agenda, tâches, notes et ce que l'assistant sait de vous.
+- **Documents PDF à votre en-tête, signés** : ordonnances, notes d'honoraires (TVA et TTC calculés),
+  conclusions d'expertise (« Cher Maître »), certificats médicaux, courriers. Le PDF s'ouvre et se partage depuis l'iPhone.
+- **Créneaux de rendez-vous** (20, 30 ou 45 min) selon vos règles : horaires, garde alternée, battement et trajet autour des expertises.
+- **Google Agenda et Gmail** (après connexion) : lecture de l'agenda, création de rendez-vous, tri des mails par priorité,
+  brouillons de réponse. Jamais d'envoi, jamais de suppression.
+- **Préparation de la journée du lendemain**, tâches et rappels, notes, mémoire durable (l'assistant retient vos préférences,
+  vos correspondants, vos dossiers en cours).
+- **Photos et documents** : envoyez une photo de courrier ou un PDF, l'assistant le lit.
+- **Recherche web** quand il faut une information à jour (adresse d'un expert, barème…).
+- Un onglet **Vue d'ensemble** (agenda, tâches, notes, mémoire) et un onglet **Réglages** (connexion Google, signature manuscrite dessinée au doigt, documents générés).
 
 Techniquement, c'est une « application web installable » (PWA) : elle se lance depuis un site, mais une fois
 ajoutée à l'écran d'accueil de l'iPhone, elle a son icône, s'ouvre en plein écran et se comporte comme une
@@ -52,6 +56,10 @@ Astuce : le micro du clavier iPhone permet de dicter vos messages.
 
 ---
 
+## Connecter Google Agenda et Gmail
+
+Suivez **[GUIDE-GOOGLE.md](GUIDE-GOOGLE.md)** (10 minutes, une seule fois).
+
 ## Réglages possibles
 
 Dans Render → votre service → **Environment** :
@@ -63,6 +71,7 @@ Dans Render → votre service → **Environment** :
 | `USER_NAME` | Prénom utilisé par l'assistant | vide |
 | `TIMEZONE` | Fuseau horaire pour les dates | `Europe/Paris` |
 | `CLAUDE_MODEL` | Modèle Claude utilisé | `claude-opus-5` |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Connexion Google (voir GUIDE-GOOGLE.md) | vide |
 
 ## Lancer sur un ordinateur (pour essayer)
 
@@ -79,12 +88,16 @@ Avec Docker : `docker build -t assistant . && docker run -p 3000:3000 -e ANTHROP
 
 - `server.js` : le serveur (connexion, conversations, envoi des messages).
 - `src/agent.js` : la logique de l'assistant (instructions, appel à Claude, exécution des outils).
-- `src/tools.js` : les outils (agenda, tâches, notes, mémoire).
+- `src/profile.js` : votre profil, vos règles et votre façon de travailler (à modifier pour changer un tarif, un contact…).
+- `src/tools.js` : les outils de base (agenda local, tâches, notes, mémoire).
+- `src/tools-pro.js` : les outils métier (documents PDF, créneaux, experts, Google Agenda, Gmail).
+- `src/documents.js` : la mise en page des PDF. `src/slots.js` : le calcul des créneaux. `src/google.js` : la connexion Google.
+- `deploy/install.sh` : installation sur un serveur (voir GUIDE-OVH.md).
 - `src/store.js` : l'enregistrement des données dans `data/db.json`.
 - `public/` : l'application affichée sur l'iPhone.
 - `tests/` : vérifications automatiques (`npm test`).
 
 ## Et ensuite ?
 
-Pistes d'évolution prévues : connexion à Google Agenda et Gmail, notifications de rappel sur le téléphone,
-envoi de photos ou de documents à l'assistant.
+Pistes d'évolution : notifications de rappel sur le téléphone, accès à app.indemnisation.com,
+rapports Dintilhac et liquidations en Word.

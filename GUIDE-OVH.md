@@ -11,24 +11,29 @@ Le serveur concerné est votre VPS OVHcloud `vps-98742a92.vps.ovh.net` (compte `
    Si ce mot de passe ne fonctionne plus : dans l'espace client OVH → *Bare Metal Cloud* → *VPS* → votre VPS →
    bouton **Réinstaller** (choisir Ubuntu). Un nouveau mot de passe vous est envoyé par mail. Attention, cela efface ce qui était sur le serveur.
 3. **Un mot de passe de votre choix** pour protéger l'application.
-4. **Un Mac ou un PC** pour taper deux commandes (l'iPhone servira ensuite).
+4. **Un Mac, un PC… ou seulement l'iPhone** avec l'application gratuite **Termius** (App Store), qui permet de se connecter au serveur et d'y coller une commande.
 
 ## Étape 1 : rendre le dépôt accessible au serveur
 
-Le code de l'application est sur GitHub dans un dépôt privé. Le serveur doit pouvoir le télécharger. Le plus simple :
+Le code de l'application est sur GitHub dans un dépôt **privé** (il contient vos règles de travail et vos
+coordonnées professionnelles : mieux vaut qu'il le reste). Le serveur a donc besoin d'un « code d'accès » pour le télécharger.
 
-1. Ouvrez <https://github.com/achacheben-jpg/Agent-v3/settings>.
-2. Tout en bas, section **Danger Zone** → **Change repository visibility** → **Make public** → confirmez.
+1. Ouvrez <https://github.com/settings/personal-access-tokens/new> (connecté à votre compte GitHub).
+2. Nom : `Serveur assistant`. Expiration : choisissez la durée la plus longue proposée.
+3. **Repository access** → *Only select repositories* → cochez `Agent-v3`.
+4. **Permissions** → *Repository permissions* → **Contents** → *Read-only*.
+5. **Generate token**. Copiez le code (il commence par `github_pat_`) : il ne sera plus affiché ensuite. Gardez-le dans vos notes, il servira à l'étape 3.
 
-Le dépôt ne contient aucun secret (ni clé, ni mot de passe, ni données) : le rendre public est sans risque.
-Si vous préférez le garder privé, le script vous demandera un « code d'accès GitHub » ; c'est plus compliqué.
+Alternative plus simple mais moins discrète : rendre le dépôt public le temps de l'installation
+(<https://github.com/achacheben-jpg/Agent-v3/settings> → tout en bas → *Change visibility* → *Make public*), puis le repasser en privé.
 
 ## Étape 2 : se connecter au serveur
 
-Sur Mac : ouvrez l'application **Terminal** (Cmd + Espace, tapez « Terminal »).
-Sur Windows : ouvrez **PowerShell**.
+**Depuis l'iPhone (Termius)** : onglet *Hosts* → **+** → *New Host* → Hostname `vps-98742a92.vps.ovh.net`,
+Username `ubuntu`, Password : le mot de passe du serveur. Enregistrez puis touchez le serveur pour vous connecter.
+Pour coller une commande : appui long sur l'écran noir → *Coller* → Entrée.
 
-Tapez puis validez :
+**Depuis un Mac** (application Terminal) ou un PC (PowerShell) :
 
 ```
 ssh ubuntu@vps-98742a92.vps.ovh.net
@@ -41,13 +46,16 @@ Vous êtes sur le serveur quand la ligne commence par `ubuntu@vps-98742a92`.
 
 ## Étape 3 : lancer l'installation
 
-Copiez-collez cette ligne, puis Entrée :
+Copiez-collez cette ligne en remplaçant `VOTRE_CODE` par le code d'accès GitHub de l'étape 1 (sans les guillemets), puis Entrée :
 
 ```
-curl -fsSL https://raw.githubusercontent.com/achacheben-jpg/Agent-v3/claude/conversational-agent-iphone-1djevb/deploy/install.sh | sudo bash
+export GITHUB_TOKEN="VOTRE_CODE"; curl -fsSL -H "Authorization: token $GITHUB_TOKEN" https://raw.githubusercontent.com/achacheben-jpg/Agent-v3/claude/conversational-agent-iphone-1djevb/deploy/install.sh | sudo -E bash
 ```
 
-Le script travaille seul pendant 2 à 4 minutes, puis pose quatre questions :
+(Si vous avez choisi de rendre le dépôt public, la ligne se réduit à :
+`curl -fsSL https://raw.githubusercontent.com/achacheben-jpg/Agent-v3/claude/conversational-agent-iphone-1djevb/deploy/install.sh | sudo bash`)
+
+Le script travaille seul pendant 2 à 4 minutes, puis pose ses questions :
 
 | Question | Que répondre |
 |---|---|
@@ -55,6 +63,7 @@ Le script travaille seul pendant 2 à 4 minutes, puis pose quatre questions :
 | Mot de passe pour ouvrir l'application | le mot de passe de votre choix |
 | Votre prénom | `Ben` (Entrée pour garder) |
 | Adresse du site | Entrée pour garder `vps-98742a92.vps.ovh.net` |
+| Google client ID / secret | Entrée pour passer (à faire plus tard avec GUIDE-GOOGLE.md) |
 
 À la fin, le script affiche « Installation terminée » et l'adresse à ouvrir.
 
@@ -63,6 +72,8 @@ Le script travaille seul pendant 2 à 4 minutes, puis pose quatre questions :
 1. Sur l'iPhone, ouvrez **Safari** et allez sur `https://vps-98742a92.vps.ovh.net`.
 2. Touchez **Partager** (le carré avec la flèche), puis **« Sur l'écran d'accueil »**, puis **Ajouter**.
 3. Ouvrez l'icône « Assistant », entrez votre mot de passe. C'est prêt.
+4. Onglet **Réglages** : dessinez votre signature avec le doigt (elle sera apposée sur les PDF), et connectez Google
+   quand vous aurez suivi GUIDE-GOOGLE.md.
 
 ## Plus tard
 
